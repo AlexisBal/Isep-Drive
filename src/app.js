@@ -64,6 +64,17 @@ async function start () {
     }
     onSuccess('Connexion réussie !')
 
+    // Création d'un dossier 
+    try {
+      node.files.mkdir("/isep-drive")
+    } catch (err) {
+      console.log("Le dossier '/isep-drive' existe déjà ! ")
+    }
+
+    for await (const file of node.files.ls('/isep-drive')) {
+      FILES.push(file.cid.toString())
+    }
+
     // Boucle pour récupérer la liste des peers connectés au réseau
     setInterval(async () => {
       try {
@@ -191,6 +202,7 @@ async function getFile () {
       await appendFile(file.name, hash, file.size, content)
       onSuccess(`The ${file.name} file was added.`)
       $emptyRow.style.display = 'none'
+      node.files.cp("/ipfs/"+file.cid,  "/isep-drive/"+file.name)
     }
   }
 }
