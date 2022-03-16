@@ -39,17 +39,18 @@ let node
 let info
 
 /* ===========================================================================
-   Start the IPFS node
+   Connexion au noeud IPFS
    =========================================================================== */
 
 async function start () {
   if (!node) {
-    // Connexion au node
-    node = IpfsHttpClient("/ip4/127.0.0.1/tcp/5001");
-
+    // Url du noeud local 
+    const url = "/ip4/127.0.0.1/tcp/5001"; // A modifier 
+    
+    // Connexion au noeud et récupération des informations 
+    node = IpfsHttpClient(url);
     try {
       info = await node.id()
-      
       const addressesHtml = info.addresses.map((address) => {
         return `<li><pre>${address}</pre></li>`
       }).join('')
@@ -61,9 +62,9 @@ async function start () {
     } catch (err) {
       return onError(err)
     }
-
     onSuccess('Connexion réussie !')
 
+    // Boucle pour récupérer la liste des peers connectés au réseau
     setInterval(async () => {
       try {
         await refreshPeerList()
@@ -73,6 +74,7 @@ async function start () {
       }
     }, 1000)
 
+    // Boucle pour récupérer la liste des peers qui suivent le dossier "isep-drive"
     setInterval(async () => {
       try {
         await refreshWorkspacePeerList()
@@ -82,6 +84,7 @@ async function start () {
       }
     }, 1000)
 
+    // Boucle pour actualiser le dossier "isep-drive" (envoie des nouveaux fichiers) 
     setInterval(async () => {
       try {
         await sendFileList()
@@ -91,6 +94,7 @@ async function start () {
       }
     }, 10000)
 
+    // Boucle pour actualiser le dossier "isep-drive" (réception des nouveaux fichiers)          
     try {
       await subscribeToWorkspace()
     } catch (err) {
@@ -101,34 +105,35 @@ async function start () {
 }
 
 /* ===========================================================================
-   Pubsub
+   Pubsub (Gestion du dossier partagé "isep-drive")
    =========================================================================== */
 
+// Réception des nouveaux fichiers lorsque qu'un peer les upload sur le dossier partagé
 const messageHandler = (message) => {
   const myNode = info.id.toString()
   const hash = message.data.toString()
   const messageSender = message.from
-
-  // append new files when someone uploads them
   if (myNode !== messageSender && !FILES.includes(hash)) {
     $cidInput.value = hash
     getFile()
   }
 }
 
+// Connexion au dossier partagé
 const subscribeToWorkspace = async () => {
   await node.pubsub.subscribe(workspace, messageHandler)
   const msg = `Suivi du dossier '${workspace}' activé`
   $logs.innerHTML = msg
 }
 
+// Envoie des nouveaux fichiers aux peers connectés au dossier partagé
 const publishHash = (hash) => {
   const data = uint8ArrayFromString(hash)
   return node.pubsub.publish(workspace, data)
 }
 
 /* ===========================================================================
-   Files handling
+   Traitement local des fichiers
    =========================================================================== */
 
 const sendFileList = () => Promise.all(FILES.map(publishHash))
@@ -186,6 +191,8 @@ async function getFile () {
   }
 
   FILES.push(hash)
+
+
 
   for await (const file of node.ls(hash)) {
     if (file.type === 'file') {

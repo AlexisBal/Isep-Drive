@@ -551,11 +551,13 @@ let fileSize = 0;
 /** @type {import('ipfs-core-types').IPFS} */ let node;
 let info;
 /* ===========================================================================
-   Start the IPFS node
+   Connexion au noeud IPFS
    =========================================================================== */ async function start() {
     if (!node) {
-        // Connexion au node
-        node = _ipfsHttpClient.create("/ip4/127.0.0.1/tcp/5001");
+        // Url du noeud local 
+        const url = "/ip4/127.0.0.1/tcp/5001"; // A modifier 
+        // Connexion au noeud et récupération des informations 
+        node = _ipfsHttpClient.create(url);
         try {
             info = await node.id();
             const addressesHtml = info.addresses.map((address)=>{
@@ -576,6 +578,7 @@ let info;
             return onError(err1);
         }
         onSuccess('Connexion réussie !');
+        // Boucle pour récupérer la liste des peers connectés au réseau
         setInterval(async ()=>{
             try {
                 await refreshPeerList();
@@ -584,6 +587,7 @@ let info;
                 onError(err);
             }
         }, 1000);
+        // Boucle pour récupérer la liste des peers qui suivent le dossier "isep-drive"
         setInterval(async ()=>{
             try {
                 await refreshWorkspacePeerList();
@@ -592,6 +596,7 @@ let info;
                 onError(err);
             }
         }, 1000);
+        // Boucle pour actualiser le dossier "isep-drive" (envoie des nouveaux fichiers) 
         setInterval(async ()=>{
             try {
                 await sendFileList();
@@ -600,6 +605,7 @@ let info;
                 onError(err);
             }
         }, 10000);
+        // Boucle pour actualiser le dossier "isep-drive" (réception des nouveaux fichiers)          
         try {
             await subscribeToWorkspace();
         } catch (err) {
@@ -609,28 +615,30 @@ let info;
     }
 }
 /* ===========================================================================
-   Pubsub
-   =========================================================================== */ const messageHandler = (message)=>{
+   Pubsub (Gestion du dossier partagé "isep-drive")
+   =========================================================================== */ // Réception des nouveaux fichiers lorsque qu'un peer les upload sur le dossier partagé
+const messageHandler = (message)=>{
     const myNode = info.id.toString();
     const hash = message.data.toString();
     const messageSender = message.from;
-    // append new files when someone uploads them
     if (myNode !== messageSender && !FILES.includes(hash)) {
         $cidInput.value = hash;
         getFile();
     }
 };
+// Connexion au dossier partagé
 const subscribeToWorkspace = async ()=>{
     await node.pubsub.subscribe(workspace, messageHandler);
     const msg = `Suivi du dossier '${workspace}' activé`;
     $logs.innerHTML = msg;
 };
+// Envoie des nouveaux fichiers aux peers connectés au dossier partagé
 const publishHash = (hash)=>{
     const data = uint8ArrayFromString(hash);
     return node.pubsub.publish(workspace, data);
 };
 /* ===========================================================================
-   Files handling
+   Traitement local des fichiers
    =========================================================================== */ const sendFileList = ()=>Promise.all(FILES.map(publishHash))
 ;
 const updateProgress = (bytesLoaded)=>{
