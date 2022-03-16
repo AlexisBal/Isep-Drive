@@ -3,6 +3,11 @@
 
 import { create as IpfsHttpClient } from 'ipfs-http-client'
 
+const IPFS = require('ipfs-core')
+const WS = require('libp2p-websockets')
+const filters = require('libp2p-websockets/src/filters')
+const transportKey = WS.prototype[Symbol.toStringTag]
+
 const all = require('it-all')
 const { concat: uint8ArrayConcat } = require('uint8arrays/concat')
 const { fromString: uint8ArrayFromString } = require('uint8arrays/from-string')
@@ -44,11 +49,32 @@ let info
 
 async function start () {
   if (!node) {
-    // Url du noeud local 
-    const url = "/ip4/127.0.0.1/tcp/5001"; // A modifier 
-    
-    // Connexion au noeud et récupération des informations 
-    node = IpfsHttpClient(url);
+    node = await IPFS.create({
+      repo: 'ipfs-' + Math.random(),
+      config: {
+        Addresses: {
+          Swarm: [
+            // This is a public webrtc-star server
+            '/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star',
+            '/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star',
+          ]
+        },
+        // If you want to connect to the public bootstrap nodes, remove the next line
+        Bootstrap: []
+      },
+      libp2p: {
+        config: {
+          transport: {
+            // This is added for local demo!
+            // In a production environment the default filter should be used
+            // where only DNS + WSS addresses will be dialed by websockets in the browser.
+            [transportKey]: {
+              filter: filters.all
+            }
+          }
+        }
+      }
+    })
     try {
       info = await node.id()
       const addressesHtml = info.addresses.map((address) => {
@@ -65,15 +91,6 @@ async function start () {
     onSuccess('Connexion réussie !')
 
     // Création d'un dossier 
-    try {
-      node.files.mkdir("/isep-drive")
-    } catch (err) {
-      console.log("Le dossier '/isep-drive' existe déjà ! ")
-    }
-
-    for await (const file of node.files.ls('/isep-drive')) {
-      FILES.push(file.cid.toString())
-    }
 
     // Boucle pour récupérer la liste des peers connectés au réseau
     setInterval(async () => {
@@ -202,7 +219,6 @@ async function getFile () {
       await appendFile(file.name, hash, file.size, content)
       onSuccess(`The ${file.name} file was added.`)
       $emptyRow.style.display = 'none'
-      node.files.cp("/ipfs/"+file.cid,  "/isep-drive/"+file.name)
     }
   }
 }
