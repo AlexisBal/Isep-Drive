@@ -639,15 +639,19 @@ const publishHash = (hash)=>{
 };
 /* ===========================================================================
    Traitement local des fichiers
-   =========================================================================== */ const sendFileList = ()=>Promise.all(FILES.map(publishHash))
+   =========================================================================== */ // Envoie de la liste des hashs stockés dans la session du navigateur
+const sendFileList = ()=>Promise.all(FILES.map(publishHash))
 ;
+// Actualisation de la barre de progression lors de l'ajout d'un ficher 
 const updateProgress = (bytesLoaded)=>{
     let percent = 100 - bytesLoaded / fileSize * 100;
     $progressBar.style.transform = `translateX(${-percent}%)`;
 };
+// Réinitialisation de la barre de progression
 const resetProgress = ()=>{
     $progressBar.style.transform = 'translateX(-100%)';
 };
+// Upload un fichier dans le navigateur
 function appendFile(name, hash, size, data) {
     const file = new window.Blob([
         data
@@ -675,6 +679,7 @@ function appendFile(name, hash, size, data) {
     $fileHistory.insertBefore(row, $fileHistory.firstChild);
     return publishHash(hash);
 }
+// Réception et ajout des fichiers du dossier 'isep-drive'
 async function getFile() {
     const hash = $cidInput.value;
     $cidInput.value = '';
@@ -688,11 +693,12 @@ async function getFile() {
         $emptyRow.style.display = 'none';
     }
 }
-/* Drag & Drop
+/* Drag & Drop 
    =========================================================================== */ const onDragEnter = ()=>$dragContainer.classList.add('dragging')
 ;
 const onDragLeave = ()=>$dragContainer.classList.remove('dragging')
 ;
+// Ajout du fichier uploadé sur IPFS 
 async function onDrop(event) {
     onDragLeave();
     event.preventDefault();
@@ -715,14 +721,16 @@ async function onDrop(event) {
     }
 }
 /* ===========================================================================
-   Peers handling
-   =========================================================================== */ async function connectToPeer(event) {
+   Gestion des Peers
+   =========================================================================== */ // Connexion à un noeud
+async function connectToPeer(event) {
     const multiaddr = $multiaddrInput.value;
     if (!multiaddr) throw new Error('No multiaddr was inserted.');
     await node.swarm.connect(multiaddr);
     onSuccess(`Successfully connected to peer.`);
     $multiaddrInput.value = '';
 }
+// Obtenir la liste des peers connectés au réseau
 async function refreshPeerList() {
     const peers = await node.swarm.peers();
     const peersAsHtml = peers.reverse().map((peer)=>{
@@ -736,6 +744,7 @@ async function refreshPeerList() {
     }).join('');
     $peersList.innerHTML = peersAsHtml;
 }
+// Obtenir la liste des peers connectés au dossier partagé "isep-drive"
 async function refreshWorkspacePeerList() {
     const peers = await node.pubsub.peers(workspace);
     const peersAsHtml = peers.reverse().map((addr)=>{
@@ -744,7 +753,7 @@ async function refreshWorkspacePeerList() {
     $workspacePeersList.innerHTML = peersAsHtml;
 }
 /* ===========================================================================
-   Error handling
+   Gestion des erreurs
    =========================================================================== */ function onSuccess(msg) {
     $logs.classList.add('success');
     $logs.innerHTML = msg;

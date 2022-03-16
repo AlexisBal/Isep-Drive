@@ -136,68 +136,58 @@ const publishHash = (hash) => {
    Traitement local des fichiers
    =========================================================================== */
 
+// Envoie de la liste des hashs stockés dans la session du navigateur
 const sendFileList = () => Promise.all(FILES.map(publishHash))
 
+// Actualisation de la barre de progression lors de l'ajout d'un ficher 
 const updateProgress = (bytesLoaded) => {
   let percent = 100 - ((bytesLoaded / fileSize) * 100)
-
   $progressBar.style.transform = `translateX(${-percent}%)`
 }
 
+// Réinitialisation de la barre de progression
 const resetProgress = () => {
   $progressBar.style.transform = 'translateX(-100%)'
 }
 
+// Upload un fichier dans le navigateur
 function appendFile (name, hash, size, data) {
   const file = new window.Blob([data], { type: 'application/octet-binary' })
   const url = window.URL.createObjectURL(file)
   const row = document.createElement('tr')
-
   const nameCell = document.createElement('td')
   nameCell.innerHTML = name
-
   const hashCell = document.createElement('td')
   hashCell.innerHTML = hash
-
   const sizeCell = document.createElement('td')
   sizeCell.innerText = size
-
   const downloadCell = document.createElement('td')
   const link = document.createElement('a')
   link.setAttribute('href', url)
   link.setAttribute('download', name)
   link.innerHTML = '<img width=20 class="table-action" src="download.svg" alt="Download" />'
   downloadCell.appendChild(link)
-
   row.appendChild(nameCell)
   row.appendChild(hashCell)
   row.appendChild(sizeCell)
   row.appendChild(downloadCell)
-
   $fileHistory.insertBefore(row, $fileHistory.firstChild)
-
   return publishHash(hash)
 }
 
+// Réception et ajout des fichiers du dossier 'isep-drive'
 async function getFile () {
   const hash = $cidInput.value
-
   $cidInput.value = ''
-
   if (!hash) {
     return onError('No CID was inserted.')
   } else if (FILES.includes(hash)) {
     return onSuccess('The file is already in the current workspace.')
   }
-
   FILES.push(hash)
-
-
-
   for await (const file of node.ls(hash)) {
     if (file.type === 'file') {
       const content = uint8ArrayConcat(await all(node.cat(file.cid)))
-
       await appendFile(file.name, hash, file.size, content)
       onSuccess(`The ${file.name} file was added.`)
       $emptyRow.style.display = 'none'
@@ -205,22 +195,19 @@ async function getFile () {
   }
 }
 
-/* Drag & Drop
+/* Drag & Drop 
    =========================================================================== */
 
 const onDragEnter = () => $dragContainer.classList.add('dragging')
-
 const onDragLeave = () => $dragContainer.classList.remove('dragging')
 
+// Ajout du fichier uploadé sur IPFS 
 async function onDrop (event) {
   onDragLeave()
   event.preventDefault()
-
   const files = Array.from(event.dataTransfer.files)
-
   for (const file of files) {
     fileSize = file.size // Note: fileSize is used by updateProgress
-
     const fileAdded = await node.add({
       path: file.name,
       content: file
@@ -228,41 +215,35 @@ async function onDrop (event) {
       wrapWithDirectory: true,
       progress: updateProgress
     })
-
     // As we are wrapping the content we use that hash to keep
     // the original file name when adding it to the table
     $cidInput.value = fileAdded.cid.toString()
-
     resetProgress()
     await getFile()
   }
 }
 
 /* ===========================================================================
-   Peers handling
+   Gestion des Peers
    =========================================================================== */
-
+// Connexion à un noeud
 async function connectToPeer (event) {
   const multiaddr = $multiaddrInput.value
-
   if (!multiaddr) {
     throw new Error('No multiaddr was inserted.')
   }
-
   await node.swarm.connect(multiaddr)
-
   onSuccess(`Successfully connected to peer.`)
   $multiaddrInput.value = ''
 }
 
+// Obtenir la liste des peers connectés au réseau
 async function refreshPeerList () {
   const peers = await node.swarm.peers()
-
   const peersAsHtml = peers.reverse()
     .map((peer) => {
       if (peer.addr) {
         const addr = peer.addr.toString()
-
         if (addr.indexOf('/p2p/') >= 0) {
           return addr
         } else {
@@ -273,23 +254,21 @@ async function refreshPeerList () {
     .map((addr) => {
       return `<tr><td>${addr}</td></tr>`
     }).join('')
-
   $peersList.innerHTML = peersAsHtml
 }
 
+// Obtenir la liste des peers connectés au dossier partagé "isep-drive"
 async function refreshWorkspacePeerList () {
   const peers = await node.pubsub.peers(workspace)
-
   const peersAsHtml = peers.reverse()
     .map((addr) => {
       return `<tr><td>${addr}</td></tr>`
     }).join('')
-
   $workspacePeersList.innerHTML = peersAsHtml
 }
 
 /* ===========================================================================
-   Error handling
+   Gestion des erreurs
    =========================================================================== */
 
 function onSuccess (msg) {
@@ -300,13 +279,11 @@ function onSuccess (msg) {
 function onError (err) {
   console.log(err)
   let msg = 'An error occured, check the dev console'
-
   if (err.stack !== undefined) {
     msg = err.stack
   } else if (typeof err === 'string') {
     msg = err
   }
-
   $logs.classList.remove('success')
   $logs.innerHTML = msg
 }
@@ -346,8 +323,6 @@ const startApplication = () => {
       onError(err)
     }
   })
-
-
   start()
 }
 
